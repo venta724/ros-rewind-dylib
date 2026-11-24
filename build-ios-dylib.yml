@@ -1,0 +1,43 @@
+name: Build iOS Auth Overlay Dylib (rosrewind_auth.dylib)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ios/rosrewind_auth.m'
+      - '.github/workflows/build-ios-dylib.yml'
+
+jobs:
+  build-dylib:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Compile ARM64 iOS dylib
+        run: |
+          SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
+          echo "Using iOS SDK: $SDK_PATH"
+          xcrun --sdk iphoneos clang \
+            -arch arm64 \
+            -isysroot "$SDK_PATH" \
+            -miphoneos-version-min=12.0 \
+            -dynamiclib \
+            -fobjc-arc \
+            -O2 \
+            -framework Foundation \
+            -framework UIKit \
+            -framework WebKit \
+            -install_name "@executable_path/rosrewind_auth.dylib" \
+            -o rosrewind_auth.dylib \
+            ios/rosrewind_auth.m
+          codesign --force --sign - rosrewind_auth.dylib
+          file rosrewind_auth.dylib
+          otool -L rosrewind_auth.dylib
+
+      - name: Upload rosrewind_auth.dylib artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rosrewind_auth-ios-arm64
+          path: rosrewind_auth.dylib
+          retention-days: 30
